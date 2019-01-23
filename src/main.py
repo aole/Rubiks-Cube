@@ -73,7 +73,7 @@ class Game(arcade.Window):
         
         self.rotation_x = -30
         self.rotation_y = 40
-        self.scale = 10
+        self.scale = 17
         self.translate_x = 300
         self.translate_y = 300
         
@@ -237,8 +237,8 @@ class Game(arcade.Window):
         if found:
             self.selected_side = si
             self.selected_face = f
-            if f==4: # center face
-                self.do_action(si, alt_press)
+            #if f==4: # center face
+            self.do_action(si, alt_press)
                 
     def rotate_side_ccw(self, side):
         # rotate the side
@@ -319,6 +319,17 @@ class Game(arcade.Window):
                     else:
                         arcade.draw_polygon_outline(coords, arcade.color.BLACK)
         
+        txt = 'Rubik\'s Cube'
+        arcade.draw_text(txt, 300, 580, [0,0,0,150], 24, width=500, align="center", anchor_x="center", anchor_y="center")
+        txt = 'Click and Drag left mouse button to rotate the whole cube'
+        arcade.draw_text(txt, 300, 550, [0,0,0,150], 12, width=500, align="center", anchor_x="center", anchor_y="center")
+        txt = 'Click right mouse button on a side to rotate it clockwise (hold ALT to reverse)'
+        arcade.draw_text(txt, 300, 530, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
+        txt = 'Press Ctrl+Z or Ctrl+Shift+Z to undo ro redo respectively'
+        arcade.draw_text(txt, 300, 510, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
+        txt = 'Use Scroll wheel to zoom in and out.'
+        arcade.draw_text(txt, 300, 490, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
+        
     def on_key_press(self, key, modifiers):
         if key == arcade.key.Z and modifiers & arcade.key.MOD_CTRL and modifiers & arcade.key.MOD_SHIFT:
             self.redo_last_action()
@@ -342,6 +353,11 @@ class Game(arcade.Window):
             self.left_mouse_down = False
         elif button == arcade.MOUSE_BUTTON_RIGHT:
             self.right_mouse_down = False
+    
+    def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
+        self.scale += scroll_y
+        if self.scale<1: self.scale = 1
+        if self.scale>35: self.scale = 35
         
 def main():
     game = Game(600, 600, 'Rubik\'s Cube')

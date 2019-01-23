@@ -1,5 +1,5 @@
-# Rubiks-Cube
-![screenshot](screenshots/screenshot01.jpg)
+# Rubik's Cube
+![screenshot](screenshots/screenshot01.JPG)
 
 ## How to Play
 
