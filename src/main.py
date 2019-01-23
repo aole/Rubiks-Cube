@@ -71,8 +71,8 @@ class Game(arcade.Window):
 
         arcade.set_background_color(arcade.color.WHITE)
         
-        self.rotation_x = -30
-        self.rotation_y = 40
+        self.rotation_x = -20
+        self.rotation_y = 210
         self.scale = 17
         self.translate_x = 300
         self.translate_y = 300
@@ -84,6 +84,9 @@ class Game(arcade.Window):
         self.history_index = -1
 
     def jumble_cude(self):
+        self.action_history.clear()
+        self.history_index = -1
+        
         for i in range(100):
             side = random.choice(range(6))
             if random.choice((True,False)):
@@ -135,7 +138,6 @@ class Game(arcade.Window):
         
     def setup(self):
         init_cude()
-        self.jumble_cude()
         
         coords = []
         # left face
@@ -329,12 +331,16 @@ class Game(arcade.Window):
         arcade.draw_text(txt, 300, 510, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
         txt = 'Use Scroll wheel to zoom in and out.'
         arcade.draw_text(txt, 300, 490, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
+        txt = 'Press R to randomize.'
+        arcade.draw_text(txt, 300, 470, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
         
     def on_key_press(self, key, modifiers):
         if key == arcade.key.Z and modifiers & arcade.key.MOD_CTRL and modifiers & arcade.key.MOD_SHIFT:
             self.redo_last_action()
         elif key == arcade.key.Z and modifiers & arcade.key.MOD_CTRL:
             self.undo_last_action()
+        elif key == arcade.key.R:
+            self.jumble_cude()
             
     def on_mouse_motion(self, x, y, dx, dy):
         if self.left_mouse_down:
