@@ -10,6 +10,13 @@ def intersect_lines(p1x, p1y, p2x, p2y, p3x, p3y, p4x, p4y):
         return (cy-ay) * (bx-ax) > (by-ay) * (cx-ax)
     return ccw(p1x, p1y, p3x, p3y, p4x, p4y) != ccw(p2x, p2y, p3x, p3y, p4x, p4y) and ccw(p1x, p1y, p2x, p2y, p3x, p3y) != ccw(p1x, p1y, p2x, p2y, p4x, p4y)
 
+BLUE = 0
+ORANGE = 1
+GREEN = 2
+RED = 3
+WHITE = 4
+YELLOW = 5
+
 sidename = ['BLUE', 'ORANGE', 'GREEN', 'RED', 'WHITE', 'YELLOW']
 sideneighbors = [[4,3,5,1],
                  [4,0,5,2],
@@ -25,44 +32,44 @@ sideconnections = [[0,5,0,3,1,7],
                    [1,1,1,1,0,0]]
 connectedfaces = [[],[0,1,2],[],[6,3,0],[],[2,5,8],[],[8,7,6],[]]
 
-BLUE = 0
-ORANGE = 1
-GREEN = 2
-RED = 3
-WHITE = 4
-YELLOW = 5
-
+cubeinit = ['000000000',
+            '111111111',
+            '222222222',
+            '333333333',
+            '444444444',
+            '555555555']
+            
 sidecolors = [arcade.color.BLUE,
               arcade.color.ORANGE,
               arcade.color.GREEN,
               arcade.color.RED,
               arcade.color.WHITE,
               arcade.color.YELLOW]
-subface = [[],[],[],[],[],[]]
+              
+subface = [[0,0,0,0,0,0,0,0,0],
+           [1,1,1,1,1,1,1,1,1],
+           [2,2,2,2,2,2,2,2,2],
+           [3,3,3,3,3,3,3,3,3],
+           [4,4,4,4,4,4,4,4,4],
+           [5,5,5,5,5,5,5,5,5]]
 
 perspective = 45
 
-def init_cude():
-    color_remaining = [8,8,8,8,8,8]
-    for i in range(6):
-        for j in range(9):
-            subface[i].append(i)
-
-class Piece:
-    def __init__(self, type, colors):
-        self.type = type
-        for t in range(type):
-            self.colors[t] = colors[t]
-
-class Cube:
-    # 26 pieces
-    # each piece has 1,2 or 3 colors
-    # mid pieces have 1 color (which is the color of the side)
-    # side pieces have 2 colors and cornor have 3
-    def __init__(self):
-        # define perfect/completed cube
-        pass
+def set_cube(configuration):
+    if len(configuration)!=6:
+        print('error in configuration:', configuration)
+        return
+    
+    side = 0
+    for c in configuration:
+        if len(c)!=9:
+            print('error in configuration:', configuration)
+            return
+        for i in range(9):
+            subface[side][i] = int(c[i])
         
+        side += 1
+
 class Game(arcade.Window):
     """ Main application class. """
 
@@ -83,7 +90,10 @@ class Game(arcade.Window):
         self.action_history = []
         self.history_index = -1
 
-    def jumble_cude(self):
+    def init_cube(self):
+        set_cube(cubeinit)
+        
+    def jumble_cube(self):
         self.action_history.clear()
         self.history_index = -1
         
@@ -94,6 +104,21 @@ class Game(arcade.Window):
             else:
                 self.rotate_side_cw(side)
             
+    def save_cube(self):
+        file = open('session.cube', 'w')
+        for s in range(6):
+            for f in range(9):
+                file.write(str(subface[s][f]))
+            file.write('\n')
+        
+        file.close()
+        
+    def load_cube(self):
+        file = open('session.cube', 'r')
+        config = file.read().splitlines()
+        set_cube(config)
+        file.close()
+        
     def rotatex(cds, deg):
         coords = copy.deepcopy(cds)
         rad = math.radians(deg)
@@ -137,8 +162,6 @@ class Game(arcade.Window):
         return coords
         
     def setup(self):
-        init_cude()
-        
         coords = []
         # left face
         size = 12
@@ -322,17 +345,19 @@ class Game(arcade.Window):
                         arcade.draw_polygon_outline(coords, arcade.color.BLACK)
         
         txt = 'Rubik\'s Cube'
-        arcade.draw_text(txt, 300, 580, [0,0,0,150], 24, width=500, align="center", anchor_x="center", anchor_y="center")
-        txt = 'Click and Drag left mouse button to rotate the whole cube'
+        arcade.draw_text(txt, 300, 580, [0,0,0,200], 24, width=500, align="center", anchor_x="center", anchor_y="center")
+        txt = 'Click and Drag left mouse button to rotate the whole cube.'
         arcade.draw_text(txt, 300, 550, [0,0,0,150], 12, width=500, align="center", anchor_x="center", anchor_y="center")
-        txt = 'Click right mouse button on a side to rotate it clockwise (hold ALT to reverse)'
+        txt = 'Click right mouse button on a side to rotate it clockwise (hold ALT to reverse).'
         arcade.draw_text(txt, 300, 530, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
-        txt = 'Press Ctrl+Z or Ctrl+Shift+Z to undo ro redo respectively'
+        txt = 'Press Ctrl+Z or Ctrl+Shift+Z to undo ro redo.'
         arcade.draw_text(txt, 300, 510, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
-        txt = 'Use Scroll wheel to zoom in and out.'
+        txt = 'Press Ctrl+S or Ctrl+O to save current or open last configuration.'
         arcade.draw_text(txt, 300, 490, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
-        txt = 'Press R to randomize.'
+        txt = 'Use Scroll wheel to zoom in and out.'
         arcade.draw_text(txt, 300, 470, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
+        txt = 'Press R to randomize; I to initialize.'
+        arcade.draw_text(txt, 300, 450, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
         
     def on_key_press(self, key, modifiers):
         if key == arcade.key.Z and modifiers & arcade.key.MOD_CTRL and modifiers & arcade.key.MOD_SHIFT:
@@ -340,7 +365,13 @@ class Game(arcade.Window):
         elif key == arcade.key.Z and modifiers & arcade.key.MOD_CTRL:
             self.undo_last_action()
         elif key == arcade.key.R:
-            self.jumble_cude()
+            self.jumble_cube()
+        elif key == arcade.key.I:
+            self.init_cube()
+        elif key == arcade.key.S and modifiers & arcade.key.MOD_CTRL:
+            self.save_cube()
+        elif key == arcade.key.O and modifiers & arcade.key.MOD_CTRL:
+            self.load_cube()
             
     def on_mouse_motion(self, x, y, dx, dy):
         if self.left_mouse_down:
