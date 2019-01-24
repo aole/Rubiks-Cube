@@ -90,6 +90,8 @@ class Game(arcade.Window):
         self.action_history = []
         self.history_index = -1
 
+        self.show_text = True
+        
     def init_cube(self):
         set_cube(cubeinit)
         
@@ -118,6 +120,15 @@ class Game(arcade.Window):
         config = file.read().splitlines()
         set_cube(config)
         file.close()
+        
+    def save_image(self):
+        self.show_text = False
+        self.on_draw()
+        
+        image = arcade.get_image()
+        image.save('image.png', 'PNG')
+        
+        self.show_text = True
         
     def rotatex(cds, deg):
         coords = copy.deepcopy(cds)
@@ -344,20 +355,21 @@ class Game(arcade.Window):
                     else:
                         arcade.draw_polygon_outline(coords, arcade.color.BLACK)
         
-        txt = 'Rubik\'s Cube'
-        arcade.draw_text(txt, 300, 580, [0,0,0,200], 24, width=500, align="center", anchor_x="center", anchor_y="center")
-        txt = 'Click and Drag left mouse button to rotate the whole cube.'
-        arcade.draw_text(txt, 300, 550, [0,0,0,150], 12, width=500, align="center", anchor_x="center", anchor_y="center")
-        txt = 'Click right mouse button on a side to rotate it clockwise (hold ALT to reverse).'
-        arcade.draw_text(txt, 300, 530, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
-        txt = 'Press Ctrl+Z or Ctrl+Shift+Z to undo ro redo.'
-        arcade.draw_text(txt, 300, 510, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
-        txt = 'Press Ctrl+S or Ctrl+O to save current or open last configuration.'
-        arcade.draw_text(txt, 300, 490, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
-        txt = 'Use Scroll wheel to zoom in and out.'
-        arcade.draw_text(txt, 300, 470, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
-        txt = 'Press R to randomize; I to initialize.'
-        arcade.draw_text(txt, 300, 450, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
+        if self.show_text:
+            txt = 'Rubik\'s Cube'
+            arcade.draw_text(txt, 300, 580, [0,0,0,200], 24, width=500, align="center", anchor_x="center", anchor_y="center")
+            txt = 'Click and Drag left mouse button to rotate the whole cube.'
+            arcade.draw_text(txt, 300, 550, [0,0,0,150], 12, width=500, align="center", anchor_x="center", anchor_y="center")
+            txt = 'Click right mouse button on a side to rotate it clockwise (hold ALT to reverse).'
+            arcade.draw_text(txt, 300, 530, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
+            txt = 'Press Ctrl+Z or Ctrl+Shift+Z to undo ro redo. Ctrl+I to save current cube image.'
+            arcade.draw_text(txt, 300, 510, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
+            txt = 'Press Ctrl+S or Ctrl+O to save current or open last configuration.'
+            arcade.draw_text(txt, 300, 490, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
+            txt = 'Use Scroll wheel to zoom in and out.'
+            arcade.draw_text(txt, 300, 470, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
+            txt = 'Press R to randomize; I to initialize.'
+            arcade.draw_text(txt, 300, 450, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
         
     def on_key_press(self, key, modifiers):
         if key == arcade.key.Z and modifiers & arcade.key.MOD_CTRL and modifiers & arcade.key.MOD_SHIFT:
@@ -366,6 +378,8 @@ class Game(arcade.Window):
             self.undo_last_action()
         elif key == arcade.key.R:
             self.jumble_cube()
+        elif key == arcade.key.I and modifiers & arcade.key.MOD_CTRL:
+            self.save_image()
         elif key == arcade.key.I:
             self.init_cube()
         elif key == arcade.key.S and modifiers & arcade.key.MOD_CTRL:
