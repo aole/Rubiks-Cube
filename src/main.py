@@ -55,6 +55,14 @@ subface = [[0,0,0,0,0,0,0,0,0],
 
 perspective = 45
 
+rotation_default_direction = [-1,-1,1,1,1,-1]
+rotation_direction = 1
+rotation_axis = [0,2,0,2,1,1]
+rotation_angle = [0,0,0,0,0,0]
+rotation_angle_step = 5
+rotation_side = -1
+animating = 0
+
 def set_cube(configuration):
     if len(configuration)!=6:
         print('error in configuration:', configuration)
@@ -130,7 +138,15 @@ class Game(arcade.Window):
         
         self.show_text = True
         
-    def rotatex(cds, deg):
+    def rotate(self, axis, cds, deg):
+        if axis == 0:
+            return self.rotatex(cds, deg)
+        elif axis == 1:
+            return self.rotatey(cds, deg)
+        elif axis == 2:
+            return self.rotatez(cds, deg)
+            
+    def rotatex(self, cds, deg):
         coords = copy.deepcopy(cds)
         rad = math.radians(deg)
         s = math.sin(rad)
@@ -144,7 +160,7 @@ class Game(arcade.Window):
         
         return coords
         
-    def rotatey(cds, deg):
+    def rotatey(self, cds, deg):
         coords = copy.deepcopy(cds)
         rad = math.radians(deg)
         s = math.sin(rad)
@@ -158,7 +174,7 @@ class Game(arcade.Window):
         
         return coords
         
-    def rotatez(cds, deg):
+    def rotatez(self, cds, deg):
         coords = copy.deepcopy(cds)
         rad = math.radians(deg)
         s = math.sin(rad)
@@ -172,6 +188,14 @@ class Game(arcade.Window):
         
         return coords
         
+    def rotatep(self, axis, p, s, c):
+        if axis==0:
+            return [p[0], p[1] * c - p[2] * s, p[1] * s + p[2] * c]
+        if axis==1:
+            return [p[0] * c + p[2] * s, p[1], -p[0] * s + p[2] * c]
+        if axis==2:
+            return [p[0] * c - p[1] * s, p[0] * s + p[1] * c, p[2]]
+            
     def setup(self):
         coords = []
         # left face
@@ -189,11 +213,11 @@ class Game(arcade.Window):
         self.face_coords = []
         self.face_coords.append(coords)
         
-        self.face_coords.append(Game.rotatey(coords, -90))
-        self.face_coords.append(Game.rotatey(coords, -180))
-        self.face_coords.append(Game.rotatey(coords, -270))
-        self.face_coords.append(Game.rotatez(coords, -90))
-        self.face_coords.append(Game.rotatez(coords, 90))
+        self.face_coords.append(self.rotatey(coords, -90))
+        self.face_coords.append(self.rotatey(coords, -180))
+        self.face_coords.append(self.rotatey(coords, -270))
+        self.face_coords.append(self.rotatez(coords, -90))
+        self.face_coords.append(self.rotatez(coords, 90))
         
     def do_action(self, side, ccw = False):
         action = str(side)
@@ -237,13 +261,18 @@ class Game(arcade.Window):
             self.rotate_side_ccw(side)
             
     def right_mouse_pressed(self, x, y, alt_press=False):
+        global rotation_direction, animating
+        
+        if animating>0:
+            return
+            
         ix = x + 1000
         
         found = False
         for si in range(6):
             # rotate the cube
-            rc = Game.rotatey(self.face_coords[si], self.rotation_y)
-            rc = Game.rotatex(rc, self.rotation_x)
+            rc = self.rotatey(self.face_coords[si], self.rotation_y)
+            rc = self.rotatex(rc, self.rotation_x)
             # which direction is the side facing
             # using the middle face of the side
             ax, ay, az = rc[4][0]
@@ -274,7 +303,11 @@ class Game(arcade.Window):
             self.selected_side = si
             self.selected_face = f
             #if f==4: # center face
-            self.do_action(si, alt_press)
+            rotation_angle[si] = 90
+            rotation_direction = rotation_default_direction[si]
+            if alt_press:
+                rotation_direction *= -1
+            animating = 2
                 
     def rotate_side_ccw(self, side):
         # rotate the side
@@ -324,37 +357,79 @@ class Game(arcade.Window):
             subface[n][tcf[1]], tn7 = tn7, subface[n][tcf[1]]
             subface[n][tcf[2]], tn8 = tn8, subface[n][tcf[2]]
         
+    class PolyToDraw:
+        def __init__(self, z, coords, color):
+            self.z = z
+            self.coords = coords
+            self.color = color
+            
     def on_draw(self):
+        global rotation_angle, animating, rotation_side
+        
         arcade.start_render()
         
+        polys = []
+        rotated = []
+        # rotate for animation
+        if animating == 1:
+            self.do_action(rotation_side, rotation_direction != rotation_default_direction[rotation_side])
+            animating = 0
+            
+        for side in range(6):
+            if rotation_angle[side]==0:
+                rotated.append(copy.deepcopy(self.face_coords[side]))
+            else:
+                rotated.append(self.rotate(rotation_axis[side], self.face_coords[side], (90-rotation_angle[side])*rotation_direction))
+            
+        for side in range(6):
+            if rotation_angle[side]==0:
+                continue
+            rad = math.radians((90-rotation_angle[side])*rotation_direction)
+            sn = math.sin(rad)
+            cs = math.cos(rad)
+            for n in sideneighbors[side]:
+                sideconind = sideconnections[side][n]
+                cfs = connectedfaces[sideconind]
+                for cf in cfs:
+                    for p in rotated[n][cf]:
+                        p[0],p[1],p[2] = self.rotatep(rotation_axis[side], p, sn, cs)
+            rotation_angle[side] -= rotation_angle_step
+            if rotation_angle[side]==0:
+                animating = 1
+                rotation_side = side
+            
         for si in range(6):
             # rotate the cube
-            rc = Game.rotatey(self.face_coords[si], self.rotation_y)
-            rc = Game.rotatex(rc, self.rotation_x)
-            # which direction is the side facing
-            # using the middle face of the side
-            ax, ay, az = rc[4][0]
-            bx, by, bz = rc[4][1]
-            cx, cy, cz = rc[4][2]
-            az = (perspective-az)/perspective
-            bz = (perspective-bz)/perspective
-            cz = (perspective-cz)/perspective
-            crz = (ax*az-bx*bz)*(cy*cz-by*bz) - (ay*az-by*bz)*(cx*cz-bx*bz)
-            if crz>0: # only display facing sides
-                faces = subface[si]
-                for f in range(9):
-                    coords = []
-                    for i in range(4):
-                        z = (perspective-rc[f][i][2])/perspective
-                        #print(z)
-                        coords.append([rc[f][i][0]*self.scale*z+self.translate_x, rc[f][i][1]*self.scale*z+self.translate_y])
+            rc = self.rotatey(rotated[si], self.rotation_y)
+            rc = self.rotatex(rc, self.rotation_x)
+            faces = subface[si]
+            for f in range(9):
+                # which direction is the side facing
+                # using the middle face of the side
+                ax, ay, az = rc[f][0]
+                bx, by, bz = rc[f][1]
+                cx, cy, cz = rc[f][2]
+                
+                az = (perspective-az)/perspective
+                bz = (perspective-bz)/perspective
+                cz = (perspective-cz)/perspective
+                crz = (ax*az-bx*bz)*(cy*cz-by*bz) - (ay*az-by*bz)*(cx*cz-bx*bz)
+                coords = []
+                avgz = 0
+                for i in range(4):
+                    avgz += rc[f][i][2]
+                    z = (perspective-rc[f][i][2])/perspective
+                    coords.append([rc[f][i][0]*self.scale*z+self.translate_x, rc[f][i][1]*self.scale*z+self.translate_y])
                         
-                    arcade.draw_polygon_filled(coords, sidecolors[faces[f]])
-                    if self.right_mouse_down and self.selected_side==si and self.selected_face==f:
-                        arcade.draw_polygon_outline(coords, arcade.color.BLACK, 3)
-                    else:
-                        arcade.draw_polygon_outline(coords, arcade.color.BLACK)
-        
+                if crz>0:
+                    polys.append(Game.PolyToDraw(avgz/4, coords, sidecolors[faces[f]]))
+                else: # display backfaces as black
+                    polys.append(Game.PolyToDraw(avgz/4, coords, arcade.color.BLACK))
+                
+        for p in sorted(polys, key=lambda x: x.z, reverse=True):
+            arcade.draw_polygon_filled(p.coords, p.color)
+            arcade.draw_polygon_outline(p.coords, arcade.color.BLACK)
+            
         if self.show_text:
             txt = 'Rubik\'s Cube'
             arcade.draw_text(txt, 300, 580, [0,0,0,200], 24, width=500, align="center", anchor_x="center", anchor_y="center")
