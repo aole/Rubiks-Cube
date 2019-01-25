@@ -90,12 +90,15 @@ class Page:
         self.height = height
         self.overlay = overlay        
         
-    def add_button(self, x, y, w, h, image, func, tooltip=None):
+    def enable_default(self):
+        return True
+        
+    def add_button(self, x, y, w, h, image, func, tooltip=None, enable_func=None):
         tex = arcade.load_texture(image)
-        self.buttons.append([x, y, w, h, tex, func, tooltip])
+        self.buttons.append([x, y, w, h, tex, func, tooltip, enable_func if enable_func else self.enable_default])
     
     def add_color_button(self, x, y, w, h, color, func, tooltip=None):
-        self.color_buttons.append([x, y, w, h, color, func, tooltip])
+        self.color_buttons.append([x, y, w, h, color, func, tooltip, self.enable_default])
         
     def add_label(self, text, x, y, color, size):
         self.labels.append([text, x, y, color, size])
@@ -103,8 +106,9 @@ class Page:
     def draw(self):
         #draw UI
         for b in self.buttons:
-            arcade.draw_texture_rectangle(b[0], b[1], b[2], b[3], b[4])
-            if self.highlighted == b:
+            alpha = 1 if b[7]() else 0.5
+            arcade.draw_texture_rectangle(b[0], b[1], b[2], b[3], b[4], alpha=alpha)
+            if self.highlighted == b and b[7]():
                 arcade.draw_rectangle_outline(b[0], b[1], b[2], b[3], arcade.color.BLACK)
         for b in self.color_buttons:
             arcade.draw_rectangle_filled(b[0], b[1], b[2], b[3], b[4])
@@ -123,7 +127,7 @@ class Page:
         
     def mouse_press(self, x, y):
         for b in self.buttons+self.color_buttons:
-            if x>=b[0]-b[2]/2 and x<=b[0]+b[2]/2 and y>=b[1]-b[3]/2 and y<=b[1]+b[3]/2:
+            if b[7] and x>=b[0]-b[2]/2 and x<=b[0]+b[2]/2 and y>=b[1]-b[3]/2 and y<=b[1]+b[3]/2:
                 b[5]()
                 return True
                 
@@ -144,8 +148,8 @@ class Game(arcade.Window):
         page = Page(width, height)
         self.pages.append(page)
         
-        page.add_button(30, 570, 30, 30, '../images/action-undo-8x.png', self.undo_last_action, 'Undo')
-        page.add_button(30, 530, 30, 30, '../images/action-redo-8x.png', self.redo_last_action, 'Redo')
+        page.add_button(30, 570, 30, 30, '../images/action-undo-8x.png', self.undo_last_action, 'Undo', self.enable_undo_button)
+        page.add_button(30, 530, 30, 30, '../images/action-redo-8x.png', self.redo_last_action, 'Redo', self.enable_redo_button)
         page.add_button(30, 470, 30, 30, '../images/box-8x.png', self.save_cube, 'Quick Save')
         page.add_button(30, 430, 30, 30, '../images/folder-8x.png', self.load_cube, 'Quick Load')
         page.add_button(30, 390, 30, 30, '../images/grid-three-up-8x.png', self.init_cube, 'Initialize Cube')
@@ -197,6 +201,12 @@ class Game(arcade.Window):
         
         self.polys_to_draw = []
         self.is_dirty = True
+        
+    def enable_undo_button(self):
+        return self.history_index>=0
+        
+    def enable_redo_button(self):
+        return self.history_index<len(self.action_history)-1
         
     def show_blue(self):
         self.rotation_x = -20
