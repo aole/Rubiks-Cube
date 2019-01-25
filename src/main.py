@@ -78,12 +78,82 @@ def set_cube(configuration):
         
         side += 1
 
+class Page:
+    def __init__(self, width, height):
+        self.buttons = []
+        self.labels = []
+        self.highlighted = None
+        self.width = width
+        self.height = height
+        
+    def add_button(self, x, y, w, h, image, func):
+        tex = arcade.load_texture(image)
+        self.buttons.append([x, y, w, h, tex, func])
+        
+    def add_label(self, text, x, y, color, size):
+        self.labels.append([text, x, y, color, size])
+        
+    def draw(self):
+        #draw UI
+        for b in self.buttons:
+            arcade.draw_texture_rectangle(b[0], b[1], b[2], b[3], b[4])
+            if self.highlighted == b:
+                arcade.draw_rectangle_outline(b[0], b[1], b[2], b[3], arcade.color.BLACK)
+        for l in self.labels:
+            arcade.draw_text(l[0], l[1], l[2], l[3], l[4], width=self.width, align="center", anchor_x="center", anchor_y="center")
+            
+    def mouse_over(self, x, y):
+        self.highlighted = None
+        for b in self.buttons:
+            if x>=b[0]-b[2]/2 and x<=b[0]+b[2]/2 and y>=b[1]-b[3]/2 and y<=b[1]+b[3]/2:
+                self.highlighted = b
+                return
+    
+    def mouse_press(self, x, y):
+        for b in self.buttons:
+            if x>=b[0]-b[2]/2 and x<=b[0]+b[2]/2 and y>=b[1]-b[3]/2 and y<=b[1]+b[3]/2:
+                b[5]()
+                return True
+                
+        return False
+        
 class Game(arcade.Window):
     """ Main application class. """
 
     def __init__(self, width, height, title):
         super().__init__(width, height, title)
 
+        self.pages = []
+        
+        # add UI page 0
+        page = Page(width, height)
+        self.pages.append(page)
+        
+        page.add_button(570, 570, 30, 30, '../images/question-mark-8x.png', self.show_help_page)
+        
+        self.current_page = 0
+        
+        # help page
+        page = Page(width, height)
+        self.pages.append(page)
+        
+        page.add_button(570, 570, 30, 30, '../images/circle-x-8x.png', self.show_ui_page)
+        txt = 'Rubik\'s Cube'
+        page.add_label(txt, 300, 500, [0,0,0,200], 24)
+        txt = 'Click and Drag left mouse button to rotate the whole cube.'
+        page.add_label(txt, 300, 380, [0,0,0,150], 12)
+        txt = 'Click right mouse button on a side to rotate it clockwise (hold ALT to reverse).'
+        page.add_label(txt, 300, 360, [0,0,0,150], 12)
+        txt = 'Press Ctrl+Z or Ctrl+Shift+Z to undo ro redo. Ctrl+I to save current cube image.'
+        page.add_label(txt, 300, 340, [0,0,0,150], 12)
+        txt = 'Press Ctrl+S or Ctrl+O to save current or open last configuration.'
+        page.add_label(txt, 300, 320, [0,0,0,150], 12)
+        txt = 'Use Scroll wheel to zoom in and out.'
+        page.add_label(txt, 300, 300, [0,0,0,150], 12)
+        txt = 'Press R to randomize; I to initialize.'
+        page.add_label(txt, 300, 280, [0,0,0,150], 12)
+        
+        #
         arcade.set_background_color(arcade.color.WHITE)
         
         self.rotation_x = -20
@@ -99,6 +169,12 @@ class Game(arcade.Window):
         self.history_index = -1
 
         self.show_text = True
+        
+    def show_help_page(self):
+        self.current_page = 1
+        
+    def show_ui_page(self):
+        self.current_page = 0
         
     def init_cube(self):
         set_cube(cubeinit)
@@ -368,6 +444,12 @@ class Game(arcade.Window):
         
         arcade.start_render()
         
+        self.pages[self.current_page].draw()
+        
+        if self.current_page != 0:
+            return
+            
+        #draw Cube
         polys = []
         rotated = []
         # rotate for animation
@@ -430,22 +512,6 @@ class Game(arcade.Window):
             arcade.draw_polygon_filled(p.coords, p.color)
             arcade.draw_polygon_outline(p.coords, arcade.color.BLACK)
             
-        if self.show_text:
-            txt = 'Rubik\'s Cube'
-            arcade.draw_text(txt, 300, 580, [0,0,0,200], 24, width=500, align="center", anchor_x="center", anchor_y="center")
-            txt = 'Click and Drag left mouse button to rotate the whole cube.'
-            arcade.draw_text(txt, 300, 550, [0,0,0,150], 12, width=500, align="center", anchor_x="center", anchor_y="center")
-            txt = 'Click right mouse button on a side to rotate it clockwise (hold ALT to reverse).'
-            arcade.draw_text(txt, 300, 530, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
-            txt = 'Press Ctrl+Z or Ctrl+Shift+Z to undo ro redo. Ctrl+I to save current cube image.'
-            arcade.draw_text(txt, 300, 510, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
-            txt = 'Press Ctrl+S or Ctrl+O to save current or open last configuration.'
-            arcade.draw_text(txt, 300, 490, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
-            txt = 'Use Scroll wheel to zoom in and out.'
-            arcade.draw_text(txt, 300, 470, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
-            txt = 'Press R to randomize; I to initialize.'
-            arcade.draw_text(txt, 300, 450, [0,0,0,150], 12, width=600, align="center", anchor_x="center", anchor_y="center")
-        
     def on_key_press(self, key, modifiers):
         if key == arcade.key.Z and modifiers & arcade.key.MOD_CTRL and modifiers & arcade.key.MOD_SHIFT:
             self.redo_last_action()
@@ -463,11 +529,15 @@ class Game(arcade.Window):
             self.load_cube()
             
     def on_mouse_motion(self, x, y, dx, dy):
+        self.pages[self.current_page].mouse_over(x,y)
         if self.left_mouse_down:
             self.rotation_y -= dx
             self.rotation_x += dy
         
     def on_mouse_press(self, x, y, button, modifiers):
+        if self.pages[self.current_page].mouse_press(x,y):
+            return
+            
         if button == arcade.MOUSE_BUTTON_LEFT:
             self.left_mouse_down = True
         elif button == arcade.MOUSE_BUTTON_RIGHT:

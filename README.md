@@ -1,2 +1,2 @@
 # Rubik's Cube
-![screenshot](screenshots/screenshot05.JPG)
+![screenshot](screenshots/screenshot06.JPG)
