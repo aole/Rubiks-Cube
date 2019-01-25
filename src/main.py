@@ -63,6 +63,8 @@ rotation_angle_step = 5
 rotation_side = -1
 animating = 0
 
+background_color = [210,210,220]
+
 def set_cube(configuration):
     if len(configuration)!=6:
         print('error in configuration:', configuration)
@@ -81,6 +83,7 @@ def set_cube(configuration):
 class Page:
     def __init__(self, width, height, overlay=True):
         self.buttons = []
+        self.color_buttons = []
         self.labels = []
         self.highlighted = None
         self.width = width
@@ -90,6 +93,9 @@ class Page:
     def add_button(self, x, y, w, h, image, func, tooltip=None):
         tex = arcade.load_texture(image)
         self.buttons.append([x, y, w, h, tex, func, tooltip])
+    
+    def add_color_button(self, x, y, w, h, color, func, tooltip=None):
+        self.color_buttons.append([x, y, w, h, color, func, tooltip])
         
     def add_label(self, text, x, y, color, size):
         self.labels.append([text, x, y, color, size])
@@ -100,19 +106,23 @@ class Page:
             arcade.draw_texture_rectangle(b[0], b[1], b[2], b[3], b[4])
             if self.highlighted == b:
                 arcade.draw_rectangle_outline(b[0], b[1], b[2], b[3], arcade.color.BLACK)
+        for b in self.color_buttons:
+            arcade.draw_rectangle_filled(b[0], b[1], b[2], b[3], b[4])
+            if self.highlighted == b:
+                arcade.draw_rectangle_outline(b[0], b[1], b[2], b[3], arcade.color.BLACK)
         for l in self.labels:
             arcade.draw_text(l[0], l[1], l[2], l[3], l[4], width=self.width, align="center", anchor_x="center", anchor_y="center")
             
     def mouse_over(self, x, y):
         self.highlighted = None
-        for b in self.buttons:
+        for b in self.buttons+self.color_buttons:
             if x>=b[0]-b[2]/2 and x<=b[0]+b[2]/2 and y>=b[1]-b[3]/2 and y<=b[1]+b[3]/2:
                 self.highlighted = b
                 return b[6]
         return None
         
     def mouse_press(self, x, y):
-        for b in self.buttons:
+        for b in self.buttons+self.color_buttons:
             if x>=b[0]-b[2]/2 and x<=b[0]+b[2]/2 and y>=b[1]-b[3]/2 and y<=b[1]+b[3]/2:
                 b[5]()
                 return True
@@ -143,24 +153,33 @@ class Game(arcade.Window):
         page.add_button(30, 90, 30, 30, '../images/question-mark-8x.png', self.show_help_page, 'Show help text')
         page.add_button(30, 50, 30, 30, '../images/account-logout-8x.png', arcade.close_window, 'Exit Program')
         
+        page.add_color_button(570, 570, 30, 30, arcade.color.BLUE, self.show_blue, 'Orient to Blue face')
+        page.add_color_button(570, 530, 30, 30, arcade.color.ORANGE, self.show_orange, 'Orient to Orange face')
+        page.add_color_button(570, 490, 30, 30, arcade.color.GREEN, self.show_green, 'Orient to Green face')
+        page.add_color_button(570, 450, 30, 30, arcade.color.RED, self.show_red, 'Orient to Red face')
+        page.add_color_button(570, 410, 30, 30, arcade.color.WHITE, self.show_white, 'Orient to White face')
+        page.add_color_button(570, 370, 30, 30, arcade.color.YELLOW, self.show_yellow, 'Orient to Yellow face')
+        
         self.current_page = 0
         
         # help page
         page = Page(width, height, False)
         self.pages.append(page)
         
-        page.add_button(570, 570, 30, 30, '../images/circle-x-8x.png', self.show_ui_page, 'Return')
+        page.add_button(570, 570, 20, 20, '../images/circle-x-8x.png', self.show_ui_page, 'Return')
         
-        page.add_label('Rubik\'s Cube', 300, 500, [0,0,0,200], 24)
-        page.add_label('Click and Drag left mouse button to rotate the whole cube.', 300, 380, [0,0,0,150], 12)
-        page.add_label('Click right mouse button on a side to rotate it clockwise (hold ALT to reverse).', 300, 360, [0,0,0,150], 12)
-        page.add_label('Press Ctrl+Z or Ctrl+Shift+Z to undo ro redo. Ctrl+I to save current cube image.', 300, 340, [0,0,0,150], 12)
-        page.add_label('Press Ctrl+S or Ctrl+O to save current or open last configuration.', 300, 320, [0,0,0,150], 12)
-        page.add_label('Use Scroll wheel to zoom in and out.', 300, 300, [0,0,0,150], 12)
-        page.add_label('Press R to randomize; I to initialize.', 300, 280, [0,0,0,150], 12)
+        page.add_label('Rubik\'s Cube', 300, 500, arcade.color.BLACK, 24)
+        page.add_label('Click and Drag left mouse button to rotate the whole cube.', 300, 380, arcade.color.BLACK, 12)
+        page.add_label('Click right mouse button on a side to rotate it clockwise (hold ALT to reverse).', 300, 360, arcade.color.BLACK, 12)
+        page.add_label('Press Ctrl+Z or Ctrl+Shift+Z to undo ro redo. Ctrl+I to save current cube image.', 300, 340, arcade.color.BLACK, 12)
+        page.add_label('Press Ctrl+S or Ctrl+O to save current or open last configuration.', 300, 320, arcade.color.BLACK, 12)
+        page.add_label('Use Scroll wheel to zoom in and out.', 300, 300, arcade.color.BLACK, 12)
+        page.add_label('Press R to randomize; I to initialize.', 300, 280, arcade.color.BLACK, 12)
+        page.add_label('Author: Bhupendra Aole', 300, 100, arcade.color.BLACK, 15)
+        page.add_label('Source: https://github.com/aole/Rubiks-Cube', 300, 75, arcade.color.BLACK, 8)
         
         #
-        arcade.set_background_color(arcade.color.WHITE)
+        arcade.set_background_color(background_color)
         
         self.rotation_x = -20
         self.rotation_y = 210
@@ -178,6 +197,30 @@ class Game(arcade.Window):
         
         self.polys_to_draw = []
         self.is_dirty = True
+        
+    def show_blue(self):
+        self.rotation_x = -20
+        self.rotation_y = -110
+        
+    def show_orange(self):
+        self.rotation_x = -20
+        self.rotation_y = -20
+        
+    def show_green(self):
+        self.rotation_x = -20
+        self.rotation_y = 70
+        
+    def show_red(self):
+        self.rotation_x = -20
+        self.rotation_y = 160
+        
+    def show_white(self):
+        self.rotation_x = -70
+        self.rotation_y = 40
+        
+    def show_yellow(self):
+        self.rotation_x = 70
+        self.rotation_y = 40
         
     def show_help_page(self):
         self.current_page = 1
