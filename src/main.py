@@ -79,16 +79,17 @@ def set_cube(configuration):
         side += 1
 
 class Page:
-    def __init__(self, width, height):
+    def __init__(self, width, height, overlay=True):
         self.buttons = []
         self.labels = []
         self.highlighted = None
         self.width = width
         self.height = height
+        self.overlay = overlay        
         
-    def add_button(self, x, y, w, h, image, func):
+    def add_button(self, x, y, w, h, image, func, tooltip=None):
         tex = arcade.load_texture(image)
-        self.buttons.append([x, y, w, h, tex, func])
+        self.buttons.append([x, y, w, h, tex, func, tooltip])
         
     def add_label(self, text, x, y, color, size):
         self.labels.append([text, x, y, color, size])
@@ -107,8 +108,9 @@ class Page:
         for b in self.buttons:
             if x>=b[0]-b[2]/2 and x<=b[0]+b[2]/2 and y>=b[1]-b[3]/2 and y<=b[1]+b[3]/2:
                 self.highlighted = b
-                return
-    
+                return b[6]
+        return None
+        
     def mouse_press(self, x, y):
         for b in self.buttons:
             if x>=b[0]-b[2]/2 and x<=b[0]+b[2]/2 and y>=b[1]-b[3]/2 and y<=b[1]+b[3]/2:
@@ -123,35 +125,39 @@ class Game(arcade.Window):
     def __init__(self, width, height, title):
         super().__init__(width, height, title)
 
+        self.status_default = 'Left click and drag to orbit. Right Click a face to rotate it clockwise (Hold ALT for counter-clockwise).'
+        self.status = self.status_default
+        
         self.pages = []
         
         # add UI page 0
         page = Page(width, height)
         self.pages.append(page)
         
-        page.add_button(570, 570, 30, 30, '../images/question-mark-8x.png', self.show_help_page)
+        page.add_button(30, 570, 30, 30, '../images/action-undo-8x.png', self.undo_last_action, 'Undo')
+        page.add_button(30, 530, 30, 30, '../images/action-redo-8x.png', self.redo_last_action, 'Redo')
+        page.add_button(30, 470, 30, 30, '../images/box-8x.png', self.save_cube, 'Quick Save')
+        page.add_button(30, 430, 30, 30, '../images/folder-8x.png', self.load_cube, 'Quick Load')
+        page.add_button(30, 390, 30, 30, '../images/grid-three-up-8x.png', self.init_cube, 'Initialize Cube')
+        page.add_button(30, 350, 30, 30, '../images/random-8x.png', self.jumble_cube, 'Randomize Cube')
+        page.add_button(30, 90, 30, 30, '../images/question-mark-8x.png', self.show_help_page, 'Show help text')
+        page.add_button(30, 50, 30, 30, '../images/account-logout-8x.png', arcade.close_window, 'Exit Program')
         
         self.current_page = 0
         
         # help page
-        page = Page(width, height)
+        page = Page(width, height, False)
         self.pages.append(page)
         
-        page.add_button(570, 570, 30, 30, '../images/circle-x-8x.png', self.show_ui_page)
-        txt = 'Rubik\'s Cube'
-        page.add_label(txt, 300, 500, [0,0,0,200], 24)
-        txt = 'Click and Drag left mouse button to rotate the whole cube.'
-        page.add_label(txt, 300, 380, [0,0,0,150], 12)
-        txt = 'Click right mouse button on a side to rotate it clockwise (hold ALT to reverse).'
-        page.add_label(txt, 300, 360, [0,0,0,150], 12)
-        txt = 'Press Ctrl+Z or Ctrl+Shift+Z to undo ro redo. Ctrl+I to save current cube image.'
-        page.add_label(txt, 300, 340, [0,0,0,150], 12)
-        txt = 'Press Ctrl+S or Ctrl+O to save current or open last configuration.'
-        page.add_label(txt, 300, 320, [0,0,0,150], 12)
-        txt = 'Use Scroll wheel to zoom in and out.'
-        page.add_label(txt, 300, 300, [0,0,0,150], 12)
-        txt = 'Press R to randomize; I to initialize.'
-        page.add_label(txt, 300, 280, [0,0,0,150], 12)
+        page.add_button(570, 570, 30, 30, '../images/circle-x-8x.png', self.show_ui_page, 'Return')
+        
+        page.add_label('Rubik\'s Cube', 300, 500, [0,0,0,200], 24)
+        page.add_label('Click and Drag left mouse button to rotate the whole cube.', 300, 380, [0,0,0,150], 12)
+        page.add_label('Click right mouse button on a side to rotate it clockwise (hold ALT to reverse).', 300, 360, [0,0,0,150], 12)
+        page.add_label('Press Ctrl+Z or Ctrl+Shift+Z to undo ro redo. Ctrl+I to save current cube image.', 300, 340, [0,0,0,150], 12)
+        page.add_label('Press Ctrl+S or Ctrl+O to save current or open last configuration.', 300, 320, [0,0,0,150], 12)
+        page.add_label('Use Scroll wheel to zoom in and out.', 300, 300, [0,0,0,150], 12)
+        page.add_label('Press R to randomize; I to initialize.', 300, 280, [0,0,0,150], 12)
         
         #
         arcade.set_background_color(arcade.color.WHITE)
@@ -169,6 +175,9 @@ class Game(arcade.Window):
         self.history_index = -1
 
         self.show_text = True
+        
+        self.polys_to_draw = []
+        self.is_dirty = True
         
     def show_help_page(self):
         self.current_page = 1
@@ -439,79 +448,89 @@ class Game(arcade.Window):
             self.coords = coords
             self.color = color
             
-    def on_draw(self):
+    def update(self, delta_time):
         global rotation_angle, animating, rotation_side
         
+        if self.pages[self.current_page].overlay and self.is_dirty:
+            
+            self.is_dirty = animating>0
+            
+            #draw Cube
+            self.polys_to_draw.clear()
+            rotated = []
+            
+            # rotate for animation
+            if animating == 1:
+                self.do_action(rotation_side, rotation_direction != rotation_default_direction[rotation_side])
+                animating = 0
+            
+            for side in range(6):
+                if rotation_angle[side]==0:
+                    rotated.append(copy.deepcopy(self.face_coords[side]))
+                else:
+                    rotated.append(self.rotate(rotation_axis[side], self.face_coords[side], (90-rotation_angle[side])*rotation_direction))
+                
+            for side in range(6):
+                if rotation_angle[side]==0:
+                    continue
+                rad = math.radians((90-rotation_angle[side])*rotation_direction)
+                sn = math.sin(rad)
+                cs = math.cos(rad)
+                for n in sideneighbors[side]:
+                    sideconind = sideconnections[side][n]
+                    cfs = connectedfaces[sideconind]
+                    for cf in cfs:
+                        for p in rotated[n][cf]:
+                            p[0],p[1],p[2] = self.rotatep(rotation_axis[side], p, sn, cs)
+                rotation_angle[side] -= rotation_angle_step
+                if rotation_angle[side]==0:
+                    animating = 1
+                    rotation_side = side
+                
+            for si in range(6):
+                # rotate the cube
+                rc = self.rotatey(rotated[si], self.rotation_y)
+                rc = self.rotatex(rc, self.rotation_x)
+                faces = subface[si]
+                for f in range(9):
+                    # which direction is the side facing
+                    # using the middle face of the side
+                    ax, ay, az = rc[f][0]
+                    bx, by, bz = rc[f][1]
+                    cx, cy, cz = rc[f][2]
+                    
+                    az = (perspective-az)/perspective
+                    bz = (perspective-bz)/perspective
+                    cz = (perspective-cz)/perspective
+                    crz = (ax*az-bx*bz)*(cy*cz-by*bz) - (ay*az-by*bz)*(cx*cz-bx*bz)
+                    coords = []
+                    avgz = 0
+                    for i in range(4):
+                        avgz += rc[f][i][2]
+                        z = (perspective-rc[f][i][2])/perspective
+                        coords.append([rc[f][i][0]*self.scale*z+self.translate_x, rc[f][i][1]*self.scale*z+self.translate_y])
+                            
+                    if crz>0:
+                        self.polys_to_draw.append(Game.PolyToDraw(avgz/4, coords, sidecolors[faces[f]]))
+                    else: # display backfaces as black
+                        self.polys_to_draw.append(Game.PolyToDraw(avgz/4, coords, arcade.color.BLACK))
+            
+    def on_draw(self):
         arcade.start_render()
         
         self.pages[self.current_page].draw()
         
-        if self.current_page != 0:
-            return
+        if self.pages[self.current_page].overlay:
             
-        #draw Cube
-        polys = []
-        rotated = []
-        # rotate for animation
-        if animating == 1:
-            self.do_action(rotation_side, rotation_direction != rotation_default_direction[rotation_side])
-            animating = 0
+            # render polygons back to front (based on z depth)
+            for p in sorted(self.polys_to_draw, key=lambda x: x.z, reverse=True):
+                arcade.draw_polygon_filled(p.coords, p.color)
+                arcade.draw_polygon_outline(p.coords, arcade.color.BLACK)
             
-        for side in range(6):
-            if rotation_angle[side]==0:
-                rotated.append(copy.deepcopy(self.face_coords[side]))
-            else:
-                rotated.append(self.rotate(rotation_axis[side], self.face_coords[side], (90-rotation_angle[side])*rotation_direction))
-            
-        for side in range(6):
-            if rotation_angle[side]==0:
-                continue
-            rad = math.radians((90-rotation_angle[side])*rotation_direction)
-            sn = math.sin(rad)
-            cs = math.cos(rad)
-            for n in sideneighbors[side]:
-                sideconind = sideconnections[side][n]
-                cfs = connectedfaces[sideconind]
-                for cf in cfs:
-                    for p in rotated[n][cf]:
-                        p[0],p[1],p[2] = self.rotatep(rotation_axis[side], p, sn, cs)
-            rotation_angle[side] -= rotation_angle_step
-            if rotation_angle[side]==0:
-                animating = 1
-                rotation_side = side
-            
-        for si in range(6):
-            # rotate the cube
-            rc = self.rotatey(rotated[si], self.rotation_y)
-            rc = self.rotatex(rc, self.rotation_x)
-            faces = subface[si]
-            for f in range(9):
-                # which direction is the side facing
-                # using the middle face of the side
-                ax, ay, az = rc[f][0]
-                bx, by, bz = rc[f][1]
-                cx, cy, cz = rc[f][2]
-                
-                az = (perspective-az)/perspective
-                bz = (perspective-bz)/perspective
-                cz = (perspective-cz)/perspective
-                crz = (ax*az-bx*bz)*(cy*cz-by*bz) - (ay*az-by*bz)*(cx*cz-bx*bz)
-                coords = []
-                avgz = 0
-                for i in range(4):
-                    avgz += rc[f][i][2]
-                    z = (perspective-rc[f][i][2])/perspective
-                    coords.append([rc[f][i][0]*self.scale*z+self.translate_x, rc[f][i][1]*self.scale*z+self.translate_y])
-                        
-                if crz>0:
-                    polys.append(Game.PolyToDraw(avgz/4, coords, sidecolors[faces[f]]))
-                else: # display backfaces as black
-                    polys.append(Game.PolyToDraw(avgz/4, coords, arcade.color.BLACK))
-                
-        for p in sorted(polys, key=lambda x: x.z, reverse=True):
-            arcade.draw_polygon_filled(p.coords, p.color)
-            arcade.draw_polygon_outline(p.coords, arcade.color.BLACK)
-            
+        # draw status bar
+        status_text = self.status if self.status else self.status_default
+        arcade.draw_text(status_text, 5, 5, [0,0,0,150], 10, width=600, align="left", anchor_x="left", anchor_y="bottom")
+        
     def on_key_press(self, key, modifiers):
         if key == arcade.key.Z and modifiers & arcade.key.MOD_CTRL and modifiers & arcade.key.MOD_SHIFT:
             self.redo_last_action()
@@ -528,13 +547,19 @@ class Game(arcade.Window):
         elif key == arcade.key.O and modifiers & arcade.key.MOD_CTRL:
             self.load_cube()
             
+        self.is_dirty = True
+        
     def on_mouse_motion(self, x, y, dx, dy):
-        self.pages[self.current_page].mouse_over(x,y)
+        self.status = self.pages[self.current_page].mouse_over(x,y)
         if self.left_mouse_down:
             self.rotation_y -= dx
             self.rotation_x += dy
         
+        self.is_dirty = True
+        
     def on_mouse_press(self, x, y, button, modifiers):
+        self.is_dirty = True
+        
         if self.pages[self.current_page].mouse_press(x,y):
             return
             
@@ -554,6 +579,8 @@ class Game(arcade.Window):
         self.scale += scroll_y
         if self.scale<1: self.scale = 1
         if self.scale>35: self.scale = 35
+        
+        self.is_dirty = True
         
 def main():
     game = Game(600, 600, 'Rubik\'s Cube')
