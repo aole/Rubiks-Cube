@@ -46,13 +46,6 @@ sidecolors = [arcade.color.BLUE,
               arcade.color.WHITE,
               arcade.color.YELLOW]
               
-subface = [[0,0,0,0,0,0,0,0,0],
-           [1,1,1,1,1,1,1,1,1],
-           [2,2,2,2,2,2,2,2,2],
-           [3,3,3,3,3,3,3,3,3],
-           [4,4,4,4,4,4,4,4,4],
-           [5,5,5,5,5,5,5,5,5]]
-
 perspective = 45
 
 rotation_default_direction = [-1,-1,1,1,1,-1]
@@ -64,21 +57,6 @@ rotation_side = -1
 animating = 0
 
 background_color = [210,210,220]
-
-def set_cube(configuration):
-    if len(configuration)!=6:
-        print('error in configuration:', configuration)
-        return
-    
-    side = 0
-    for c in configuration:
-        if len(c)!=9:
-            print('error in configuration:', configuration)
-            return
-        for i in range(9):
-            subface[side][i] = int(c[i])
-        
-        side += 1
 
 class Page:
     def __init__(self, width, height, overlay=True):
@@ -138,6 +116,13 @@ class Game(arcade.Window):
 
     def __init__(self, width, height, title):
         super().__init__(width, height, title)
+
+        self.cubepiece = [[0,0,0,0,0,0,0,0,0],
+                          [1,1,1,1,1,1,1,1,1],
+                          [2,2,2,2,2,2,2,2,2],
+                          [3,3,3,3,3,3,3,3,3],
+                          [4,4,4,4,4,4,4,4,4],
+                          [5,5,5,5,5,5,5,5,5]]
 
         self.status_default = 'Left click and drag to orbit. Right Click a face to rotate it clockwise (Hold ALT for counter-clockwise).'
         self.status = self.status_default
@@ -239,8 +224,23 @@ class Game(arcade.Window):
         self.current_page = 0
         
     def init_cube(self):
-        set_cube(cubeinit)
+        self.set_cube(cubeinit)
         
+    def set_cube(self, configuration):
+        if len(configuration)!=6:
+            print('error in configuration:', configuration)
+            return
+        
+        side = 0
+        for c in configuration:
+            if len(c)!=9:
+                print('error in configuration:', configuration)
+                return
+            for i in range(9):
+                self.cubepiece[side][i] = int(c[i])
+            
+            side += 1
+
     def jumble_cube(self):
         self.action_history.clear()
         self.history_index = -1
@@ -256,7 +256,7 @@ class Game(arcade.Window):
         file = open('session.cube', 'w')
         for s in range(6):
             for f in range(9):
-                file.write(str(subface[s][f]))
+                file.write(str(self.cubepiece[s][f]))
             file.write('\n')
         
         file.close()
@@ -264,7 +264,7 @@ class Game(arcade.Window):
     def load_cube(self):
         file = open('session.cube', 'r')
         config = file.read().splitlines()
-        set_cube(config)
+        self.set_cube(config)
         file.close()
         
     def save_image(self):
@@ -418,7 +418,7 @@ class Game(arcade.Window):
             cx, cy, cz = rc[4][2]
             crz = (ax-bx)*(cy-by) - (ay-by)*(cx-bx)
             if crz>0: # only display facing sides
-                faces = subface[si]
+                faces = self.cubepiece[si]
                 for f in range(9):
                     coords = []
                     for i in range(4):
@@ -449,51 +449,51 @@ class Game(arcade.Window):
                 
     def rotate_side_ccw(self, side):
         # rotate the side
-        tmp = subface[side][0]
-        subface[side][0] = subface[side][2]
-        subface[side][2] = subface[side][8]
-        subface[side][8] = subface[side][6]
-        subface[side][6] = tmp
-        tmp = subface[side][1]
-        subface[side][1] = subface[side][5]
-        subface[side][5] = subface[side][7]
-        subface[side][7] = subface[side][3]
-        subface[side][3] = tmp
+        tmp = self.cubepiece[side][0]
+        self.cubepiece[side][0] = self.cubepiece[side][2]
+        self.cubepiece[side][2] = self.cubepiece[side][8]
+        self.cubepiece[side][8] = self.cubepiece[side][6]
+        self.cubepiece[side][6] = tmp
+        tmp = self.cubepiece[side][1]
+        self.cubepiece[side][1] = self.cubepiece[side][5]
+        self.cubepiece[side][5] = self.cubepiece[side][7]
+        self.cubepiece[side][7] = self.cubepiece[side][3]
+        self.cubepiece[side][3] = tmp
         # rotate one for of each neighboring side
         lastside = sideneighbors[side][-1]
         sideconind = sideconnections[side][lastside] # which row to rotate / connected row
         tcf = connectedfaces[sideconind]
-        tn6, tn7, tn8 = subface[lastside][tcf[0]],subface[lastside][tcf[1]],subface[lastside][tcf[2]]
+        tn6, tn7, tn8 = self.cubepiece[lastside][tcf[0]],self.cubepiece[lastside][tcf[1]],self.cubepiece[lastside][tcf[2]]
         for n in sideneighbors[side]:
             sideconind = sideconnections[side][n] # which row to rotate / connected row
             tcf = connectedfaces[sideconind]
-            subface[n][tcf[0]], tn6 = tn6, subface[n][tcf[0]]
-            subface[n][tcf[1]], tn7 = tn7, subface[n][tcf[1]]
-            subface[n][tcf[2]], tn8 = tn8, subface[n][tcf[2]]
+            self.cubepiece[n][tcf[0]], tn6 = tn6, self.cubepiece[n][tcf[0]]
+            self.cubepiece[n][tcf[1]], tn7 = tn7, self.cubepiece[n][tcf[1]]
+            self.cubepiece[n][tcf[2]], tn8 = tn8, self.cubepiece[n][tcf[2]]
         
     def rotate_side_cw(self, side):
         # rotate the side
-        tmp = subface[side][6]
-        subface[side][6] = subface[side][8]
-        subface[side][8] = subface[side][2]
-        subface[side][2] = subface[side][0]
-        subface[side][0] = tmp
-        tmp = subface[side][3]
-        subface[side][3] = subface[side][7]
-        subface[side][7] = subface[side][5]
-        subface[side][5] = subface[side][1]
-        subface[side][1] = tmp
+        tmp = self.cubepiece[side][6]
+        self.cubepiece[side][6] = self.cubepiece[side][8]
+        self.cubepiece[side][8] = self.cubepiece[side][2]
+        self.cubepiece[side][2] = self.cubepiece[side][0]
+        self.cubepiece[side][0] = tmp
+        tmp = self.cubepiece[side][3]
+        self.cubepiece[side][3] = self.cubepiece[side][7]
+        self.cubepiece[side][7] = self.cubepiece[side][5]
+        self.cubepiece[side][5] = self.cubepiece[side][1]
+        self.cubepiece[side][1] = tmp
         # rotate one for of each neighboring side
         lastside = sideneighbors[side][0]
         sideconind = sideconnections[side][lastside] # which row to rotate / connected row
         tcf = connectedfaces[sideconind]
-        tn6, tn7, tn8 = subface[lastside][tcf[0]],subface[lastside][tcf[1]],subface[lastside][tcf[2]]
+        tn6, tn7, tn8 = self.cubepiece[lastside][tcf[0]],self.cubepiece[lastside][tcf[1]],self.cubepiece[lastside][tcf[2]]
         for n in reversed(sideneighbors[side]):
             sideconind = sideconnections[side][n] # which row to rotate / connected row
             tcf = connectedfaces[sideconind]
-            subface[n][tcf[0]], tn6 = tn6, subface[n][tcf[0]]
-            subface[n][tcf[1]], tn7 = tn7, subface[n][tcf[1]]
-            subface[n][tcf[2]], tn8 = tn8, subface[n][tcf[2]]
+            self.cubepiece[n][tcf[0]], tn6 = tn6, self.cubepiece[n][tcf[0]]
+            self.cubepiece[n][tcf[1]], tn7 = tn7, self.cubepiece[n][tcf[1]]
+            self.cubepiece[n][tcf[2]], tn8 = tn8, self.cubepiece[n][tcf[2]]
         
     class PolyToDraw:
         def __init__(self, z, coords, color):
@@ -544,7 +544,7 @@ class Game(arcade.Window):
                 # rotate the cube
                 rc = self.rotatey(rotated[si], self.rotation_y)
                 rc = self.rotatex(rc, self.rotation_x)
-                faces = subface[si]
+                faces = self.cubepiece[si]
                 for f in range(9):
                     # which direction is the side facing
                     # using the middle face of the side
@@ -605,8 +605,12 @@ class Game(arcade.Window):
     def on_mouse_motion(self, x, y, dx, dy):
         self.status = self.pages[self.current_page].mouse_over(x,y)
         if self.left_mouse_down:
-            self.rotation_y -= dx
             self.rotation_x += dy
+            self.rotation_x %= 360
+            if self.rotation_x>120 and self.rotation_x<300:
+                self.rotation_y += dx
+            else:
+                self.rotation_y -= dx
         
         self.is_dirty = True
         
