@@ -124,6 +124,10 @@ class Game(arcade.Window):
                           [4,4,4,4,4,4,4,4,4],
                           [5,5,5,5,5,5,5,5,5]]
 
+        #
+        arcade.set_background_color(background_color)
+        
+        # status bar
         self.status_default = 'Left click and drag to orbit. Right Click a face to rotate it clockwise (Hold ALT for counter-clockwise).'
         self.status = self.status_default
         
@@ -166,9 +170,6 @@ class Game(arcade.Window):
         page.add_label('Press R to randomize; I to initialize.', 300, 280, arcade.color.BLACK, 12)
         page.add_label('Author: Bhupendra Aole', 300, 100, arcade.color.BLACK, 15)
         page.add_label('Source: https://github.com/aole/Rubiks-Cube', 300, 75, arcade.color.BLACK, 8)
-        
-        #
-        arcade.set_background_color(background_color)
         
         self.rotation_x = -20
         self.rotation_y = 210
