@@ -62,6 +62,8 @@ class Page:
         self.buttons = []
         self.color_buttons = []
         self.labels = []
+        self.steps = {}
+        self.current_step = ''
         self.highlighted = None
         self.width = width
         self.height = height
@@ -92,6 +94,11 @@ class Page:
     def add_label(self, text, x, y, color, size):
         self.labels.append([text, x, y, color, size])
 
+    def add_step(self, id, x, y, img, descrip):
+        self.steps[id] = {'x': x, 'y': y,
+                          'texture': arcade.load_texture(img),
+                          'description': descrip}
+
     def draw(self):
         # draw UI
         for b in self.buttons:
@@ -120,6 +127,13 @@ class Page:
                              align="center",
                              anchor_x="center",
                              anchor_y="center")
+
+        if self.current_step != '':
+            step = self.steps[self.current_step]
+            arcade.draw_texture_rectangle(
+                step['x'], step['y'], 50, 50, step['texture'])
+            arcade.draw_text(step['description'], step['x'] +
+                             40, step['y']+25, arcade.color.BLACK, anchor_y='top', multiline=True, width=400)
 
     def mouse_over(self, x, y):
         self.highlighted = None
@@ -195,6 +209,12 @@ class Game(arcade.Window):
                               self.show_white, 'Orient to White face')
         page.add_color_button(570, 370, 30, 30, arcade.color.YELLOW,
                               self.show_yellow, 'Orient to Yellow face')
+
+        page.add_step('daisy', 120, 570, 'images/daisy.jpeg',
+                      'Make a daisy.\nYellow in the middle and white sides.')
+        page.add_step('daisytocross', 120, 570, 'images/daisytocross.jpeg',
+                      'Make white cross.\nRotate the upper layer (U) so the color matches up with front center layer.\nThen rotate the front layer (F) twice.')
+        page.current_step = 'daisytocross'
 
         self.current_page = 0
 
@@ -298,9 +318,12 @@ class Game(arcade.Window):
 
             side += 1
 
+        self.derive_state()
+
     def jumble_cube(self):
         self.action_history.clear()
         self.history_index = -1
+        self.state = 'Scambled'
 
         for i in range(100):
             side = random.choice(range(6))
@@ -417,6 +440,44 @@ class Game(arcade.Window):
         self.face_coords.append(self.rotatez(coords, -90))
         self.face_coords.append(self.rotatez(coords, 90))
 
+    def derive_state(self):
+        self.state = 'Scambled'
+        solved = True
+
+        # check white cross
+        s = WHITE
+        for i in range(1, 9, 2):
+            if self.cubepiece[s][i] != int(cubeinit[s][i]):
+                solved = False
+                break
+        if not solved:
+            # check daisy
+            s = YELLOW
+            for i in range(1, 9, 2):
+                if self.cubepiece[s][i] != int(cubeinit[WHITE][i]):
+                    return
+            self.state = 'Daisy'
+            return
+        self.state = 'White Cross'
+        # check first layer
+        s = WHITE
+        for i in range(9):
+            if self.cubepiece[s][i] != int(cubeinit[s][i]):
+                return
+        for s in range(6):
+            if s in (WHITE, YELLOW):
+                continue
+            for i in range(3, 9, 3):
+                if self.cubepiece[s][i-1] != int(cubeinit[s][i-1]):
+                    return
+        self.state = 'White Layer'
+        # check middle layer
+        self.state = 'Middle layer'
+        # check yellow cross
+        self.state = 'Yellow Cross'
+        # check corners
+        self.state = 'Solved'
+
     def do_action(self, side, ccw=False):
         action = str(side)
         if ccw:
@@ -432,6 +493,8 @@ class Game(arcade.Window):
                     len(self.action_history) - 1, self.history_index - 1, -1):
                 del self.action_history[i]
 
+        self.derive_state()
+        print('State:', self.state)
         self.action_history.append(action)
 
     def redo_last_action(self):
@@ -465,21 +528,19 @@ class Game(arcade.Window):
         if animating > 0:
             return
 
-        ix = x + 1000
-
         found = False
         for si in range(6):
-            # rotate the cube
+            # rotate the cube from initial orientation to display orientation
             rc = self.rotatey(self.face_coords[si], self.rotation_y)
             rc = self.rotatex(rc, self.rotation_x)
-            # which direction is the side facing
             # using the middle face of the side
+            # use triangle orientation to find if the side is facing outwards
             ax, ay, az = rc[4][0]
             bx, by, bz = rc[4][1]
             cx, cy, cz = rc[4][2]
             crz = (ax - bx) * (cy - by) - (ay - by) * (cx - bx)
-            if crz > 0:  # only display facing sides
-                faces = self.cubepiece[si]
+            if crz > 0:  # side is facing out
+                # check each piece of the side of it intersects with mouse coords
                 for f in range(9):
                     coords = []
                     for i in range(4):
@@ -488,12 +549,14 @@ class Game(arcade.Window):
                             rc[f][i][1] * self.scale + self.translate_y
                         ])
 
+                    # check if one of the sides intersections with a horizontal line on y
+                    # only 1 should intersect to be in the polygon.
                     icounts = 0
                     for p in range(4):
                         p1 = coords[p - 1]
                         p2 = coords[p]
-                        if intersect_lines(x, y, ix, y, coords[p - 1][0],
-                                           coords[p - 1][1], coords[p][0],
+                        if intersect_lines(x, y, x+1000, y, coords[p-1][0],
+                                           coords[p-1][1], coords[p][0],
                                            coords[p][1]):
                             icounts += 1
 
