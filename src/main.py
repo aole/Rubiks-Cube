@@ -426,10 +426,8 @@ class Game(arcade.Window):
                 coords.append(
                     [[x, -size2 + y * size3, -size2 + z * size3],
                      [x, -size2 + y * size3, -size2 + z * size3 + size3],
-                     [
-                         x, -size2 + y * size3 + size3,
-                         -size2 + z * size3 + size3
-                    ], [x, -size2 + y * size3 + size3, -size2 + z * size3]])
+                     [x, -size2 + y * size3 + size3, -size2 + z * size3 + size3],
+                     [x, -size2 + y * size3 + size3, -size2 + z * size3]])
 
         self.face_coords = []
         self.face_coords.append(coords)
@@ -459,23 +457,45 @@ class Game(arcade.Window):
             self.state = 'Daisy'
             return
         self.state = 'White Cross'
+
         # check first layer
         s = WHITE
         for i in range(9):
             if self.cubepiece[s][i] != int(cubeinit[s][i]):
                 return
+        for s in range(6):  # check pieces connected to white
+            if s in (WHITE, YELLOW):
+                continue
+            for i in range(6, 8):
+                if self.cubepiece[s][i] != self.cubepiece[s][i+1]:
+                    return
+        self.state = 'Upper/white Layer'
+
+        # check middle layer
         for s in range(6):
             if s in (WHITE, YELLOW):
                 continue
-            for i in range(3, 9, 3):
-                if self.cubepiece[s][i-1] != int(cubeinit[s][i-1]):
+            for i in range(3, 6):
+                if self.cubepiece[s][i] != self.cubepiece[s][i+3]:
                     return
-        self.state = 'White Layer'
-        # check middle layer
         self.state = 'Middle layer'
+
         # check yellow cross
+        for s in range(6):
+            if s in (WHITE, YELLOW):
+                continue
+            # check middle and side piece
+            if self.cubepiece[s][1] != self.cubepiece[s][4]:
+                return
+        if not (YELLOW == self.cubepiece[YELLOW][1] == self.cubepiece[YELLOW][3] == self.cubepiece[YELLOW][5] == self.cubepiece[YELLOW][7]):
+            return
         self.state = 'Yellow Cross'
-        # check corners
+
+        # check all pieces
+        for s in range(6):
+            for i in range(9):
+                if self.cubepiece[s][i] != int(cubeinit[s][i]):
+                    return
         self.state = 'Solved'
 
     def do_action(self, side, ccw=False):
@@ -632,10 +652,11 @@ class Game(arcade.Window):
 
     class PolyToDraw:
 
-        def __init__(self, z, coords, color):
+        def __init__(self, z, coords, color, piece):
             self.z = z
             self.coords = coords
             self.color = color
+            self.piece = piece
 
     def update(self, delta_time):
         global rotation_angle, animating, rotation_side
@@ -713,11 +734,11 @@ class Game(arcade.Window):
                     if crz > 0:
                         self.polys_to_draw.append(
                             Game.PolyToDraw(avgz / 4, coords,
-                                            sidecolors[faces[f]]))
+                                            sidecolors[faces[f]], f))
                     else:  # display backfaces as black
                         self.polys_to_draw.append(
                             Game.PolyToDraw(avgz / 4, coords,
-                                            arcade.color.BLACK))
+                                            arcade.color.BLACK, f))
 
     def on_draw(self):
         arcade.start_render()
@@ -725,13 +746,13 @@ class Game(arcade.Window):
         self.pages[self.current_page].draw()
 
         if self.pages[self.current_page].overlay:
-
             # render polygons back to front (based on z depth)
-            for p in sorted(self.polys_to_draw,
-                            key=lambda x: x.z,
-                            reverse=True):
-                arcade.draw_polygon_filled(p.coords, p.color)
-                arcade.draw_polygon_outline(p.coords, arcade.color.BLACK)
+            for p in sorted(self.polys_to_draw, key=lambda x: x.z, reverse=True):
+                # for p in self.polys_to_draw:
+                if p.color != arcade.color.BLACK or animating:  # do not draw back polys
+                    arcade.draw_polygon_filled(p.coords, p.color)
+                    arcade.draw_polygon_outline(p.coords, arcade.color.BLACK)
+                    # arcade.draw_text(f'{p.piece}', p.coords[0][0], p.coords[0][1])
 
         # draw status bar
         status_text = self.status if self.status else self.status_default
