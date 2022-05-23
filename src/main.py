@@ -131,9 +131,9 @@ class Page:
         if self.current_step != '':
             step = self.steps[self.current_step]
             arcade.draw_texture_rectangle(
-                step['x'], step['y'], 50, 50, step['texture'])
+                step['x'], step['y'], 80, 80, step['texture'])
             arcade.draw_text(step['description'], step['x'] +
-                             40, step['y']+25, arcade.color.BLACK, anchor_y='top', multiline=True, width=400)
+                             45, step['y']+40, arcade.color.BLACK, anchor_y='top', multiline=True, width=400)
 
     def mouse_over(self, x, y):
         self.highlighted = None
@@ -210,9 +210,10 @@ class Game(arcade.Window):
         page.add_color_button(570, 370, 30, 30, arcade.color.YELLOW,
                               self.show_yellow, 'Orient to Yellow face')
 
-        page.add_step('daisy', 120, 570, 'images/daisy.jpeg',
+        # Tutorial / How to
+        page.add_step('daisy', 100, 550, 'images/daisy.jpeg',
                       'Make a daisy.\nYellow in the middle and white sides.')
-        page.add_step('daisytocross', 120, 570, 'images/daisytocross.jpeg',
+        page.add_step('daisytocross', 100, 550, 'images/daisytocross.jpeg',
                       'Make white cross.\nRotate the upper layer (U) so the color matches up with front center layer.\nThen rotate the front layer (F) twice.')
         page.current_step = 'daisytocross'
 
